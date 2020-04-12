@@ -4,7 +4,14 @@
 
 const path = require('path')
 
-const { Orchestrator, Config, combine, singleConductor, localOnly, tapeExecutor } = require('@holochain/tryorama')
+const {
+  Orchestrator,
+  Config,
+  combine,
+  singleConductor,
+  localOnly,
+  tapeExecutor
+} = require('@holochain/tryorama')
 
 process.on('unhandledRejection', error => {
   // Will print "unhandledRejection err is not defined"
@@ -22,33 +29,44 @@ const orchestrator = new Orchestrator({
     // specify that all "players" in the test are on the local machine, rather than
     // on remote machines
     localOnly,
-
-    // squash all instances from all conductors down into a single conductor,
-    // for in-memory testing purposes.
-    // Remove this middleware for other "real" network types which can actually
-    // send messages across conductors
-    singleConductor,
   ),
 })
 
-const dna = Config.dna(dnaPath, 'scaffold-test')
-const conductorConfig = Config.gen({myInstanceName: dna})
+const dna = Config.dna(dnaPath, 'cc_tuts')
+const config = Config.gen(
+  {
+    cc_tuts: dna,
+  },
+  {
+    network: {
+      type: 'sim2h',
+      sim2h_url: 'ws://localhost:9000',
+    },
+  },
+);
 
-orchestrator.registerScenario("description of example test", async (s, t) => {
+orchestrator.registerScenario('Test hello holo', async (s, t) => {
+  const {alice, bob} = await s.players({alice: config, bob: config}, true);
+  const result = await alice.call('cc_tuts', 'hello', 'hello_holo', {});
+  t.ok(result.Ok);
+  t.deepEqual(result, {Ok: 'Hello Holo'});
 
-  const {alice, bob} = await s.players({alice: conductorConfig, bob: conductorConfig}, true)
+  const create_result = await alice.call('cc_tuts', 'hello', 'create_person', {
+    person: {name: 'Alice'},
+  });
+  t.ok(create_result.Ok);
+  const alice_person_address = create_result.Ok;
 
-  // Make a call to a Zome function
-  // indicating the function, and passing it an input
-  const addr = await alice.call("myInstanceName", "my_zome", "create_my_entry", {"entry" : {"content":"sample content"}})
+  await s.consistency();
 
-  // Wait for all network activity to settle
-  await s.consistency()
-
-  const result = await bob.call("myInstanceName", "my_zome", "get_my_entry", {"address": addr.Ok})
-
-  // check for equality of the actual and expected results
-  t.deepEqual(result, { Ok: { App: [ 'my_entry', '{"content":"sample content"}' ] } })
-})
+  const retrieve_result = await alice.call(
+    'cc_tuts',
+    'hello',
+    'retrieve_person',
+    {address: alice_person_address},
+  );
+  t.ok(retrieve_result);
+  t.deepEqual(retrieve_result, {Ok: {name: 'Alice'}});
+});
 
 orchestrator.run()
