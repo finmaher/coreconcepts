@@ -1,5 +1,13 @@
 let holochain_connection = holochainclient.connect();
 
+function get_agent_id() {
+  holochain_connection.then(({callZome, close}) => {
+    callZome('test-instance', 'hello', 'get_agent_id')({}).then(result =>
+      show_output(result, 'agent_id'),
+    );
+  });
+}
+
 function show_output(r, id) {
   let el = document.getElementById(id);
   let output = JSON.parse(r);
