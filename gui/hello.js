@@ -38,20 +38,38 @@ function hello() {
   });
 }
 
-function create_person() {
-  const name = document.getElementById('name').value;
+function create_post() {
+  const message = document.getElementById('post').value;
   holochain_connection.then(({callZome, close}) => {
-    callZome('test-instance', 'hello', 'create_person')({
-      person: {name: name},
+    callZome('test-instance', 'hello', 'create_post')({
+      message: message,
+      timestamp: timestamp,
     }).then(result => show_output(result, 'address_output'));
   });
 }
 
-function retrieve_person() {
+function display_post(result) {
+  let list = document.getElementById('posts_output');
+  list.innerHTML = "";
+  let output = JSON.parse(result);
+  if (output.Ok) {
+    let posts = output.Ok.sort((a, b) => a.timestamp - b.timestamp);
+    for (post of posts) {
+      let node = document.createElement("LI");
+      let textnode = document.createTextNode(post.message);
+      node.appendChild(textnode);
+      list.appendChild(node);
+    }
+  } else {
+    alert(output.Err.Internal);
+  }
+}
+
+function retrieve_posts() {
   let address = document.getElementById('address_in').value.trim();
   holochain_connection.then(({callZome, close}) => {
-    callZome('test-instance', 'hello', 'retrieve_person')({
-      address: address,
-    }).then(result => show_person(result, 'person_output'));
+    callZome('test-instance', 'hello', 'retrieve_posts')({
+      agent_address: address,
+    }).then(result => display_post(result));
   });
 }
